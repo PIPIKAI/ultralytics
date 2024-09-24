@@ -202,7 +202,7 @@ class OBB(Detect):
         x = Detect.forward(self, x)
         if self.training:
             return x, angle
-        return torch.cat([x, angle], 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
+        return torch.cat([x, angle], 1).permute(0, 2, 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
 
     def decode_bboxes(self, bboxes, anchors):
         """Decode rotated bounding boxes."""
