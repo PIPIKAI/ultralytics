@@ -126,8 +126,8 @@ class Detect(nn.Module):
         results = []
         for i in range(self.nl):
             dfl = self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous()
-            cls = self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous()
             cls = cls.sigmoid()
+            cls = self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous()
             results.append(torch.cat((cls, dfl), -1))
         return tuple(results)
 
@@ -206,9 +206,9 @@ class Segment(Detect):
         results = []
         for i in range(self.nl):
             dfl = self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous()
+            cls = cls.sigmoid()
             cls = self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous()
             mcoef = self.cv4[i](x[i]).permute(0, 2, 3, 1).contiguous()
-            cls = cls.sigmoid()
             results.append(torch.cat((cls, dfl, mcoef), -1))
         return results
 
@@ -250,9 +250,9 @@ class OBB(Detect):
         results = []
         for i in range(self.nl):
             dfl = self.cv2[i](x[i]).permute(0, 2, 3, 1).contiguous()
+            cls = cls.sigmoid()
             cls = self.cv3[i](x[i]).permute(0, 2, 3, 1).contiguous()
             angle = self.cv4[i](x[i]).permute(0, 2, 3, 1).contiguous()
-            cls = cls.sigmoid()
             results.append(torch.cat((cls, dfl, angle), -1))
         return results
 
