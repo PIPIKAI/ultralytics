@@ -184,6 +184,8 @@ class Detect(nn.Module):
             dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
         if self.export and self.format == "imx":
             return dbox.transpose(1, 2), cls.sigmoid().permute(0, 2, 1)
+        if self.export:
+            return x_cat 
         return torch.cat((dbox, cls.sigmoid()), 1)
 
     def bias_init(self):
@@ -334,7 +336,7 @@ class OBB(Detect):
         x = Detect.forward(self, x)
         if self.training:
             return x, angle
-        return torch.cat([x, angle], 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
+        return torch.cat([x, angle], 1).permute(0, 2, 1) if self.export else (torch.cat([x[0], angle], 1), (x[1], angle))
 
     def decode_bboxes(self, bboxes: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
         """Decode rotated bounding boxes."""
