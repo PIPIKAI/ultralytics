@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import math
 from __future__ import annotations
 
 from typing import Any
@@ -751,10 +752,17 @@ class v8OBBLoss(v8DetectionLoss):
         else:
             loss[0] += (pred_angle * 0).sum()
 
+        # Angle Loss (MSE)
+        gt_angle_norm = torch.minimum(target_bboxes[fg_mask][:,-1], math.pi/2 - target_bboxes[fg_mask][:,-1])
+        pred_angle_norm = torch.minimum(pred_bboxes[fg_mask][:,-1], math.pi/2 - pred_bboxes[fg_mask][:,-1])
+        angle_diff = gt_angle_norm - pred_angle_norm
+        angle_loss = (angle_diff ** 2).mean()
+        
         loss[0] *= self.hyp.box  # box gain
         loss[1] *= self.hyp.cls  # cls gain
         loss[2] *= self.hyp.dfl  # dfl gain
-
+        loss[3] = angle_loss * self.hyp.ang
+        
         return loss * batch_size, loss.detach()  # loss(box, cls, dfl)
 
     def bbox_decode(
