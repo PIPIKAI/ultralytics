@@ -1,10 +1,10 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import math
 from __future__ import annotations
 
 from typing import Any
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -688,7 +688,7 @@ class v8OBBLoss(v8DetectionLoss):
 
     def __call__(self, preds: Any, batch: dict[str, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
         """Calculate and return the loss for oriented bounding box detection."""
-        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        loss = torch.zeros(4, device=self.device)  # box, cls, dfl
         feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
         batch_size = pred_angle.shape[0]  # batch size, number of masks, mask height, mask width
         pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
@@ -749,19 +749,22 @@ class v8OBBLoss(v8DetectionLoss):
             loss[0], loss[2] = self.bbox_loss(
                 pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
             )
+            
+            # 改进的角度损失
+            gt_angle = target_bboxes[fg_mask][:, -1]
+            pred_angle = pred_bboxes[fg_mask][:, -1]
+            angle_diff = torch.abs(gt_angle - pred_angle)
+            angle_diff = torch.minimum(angle_diff, math.pi - angle_diff)
+            loss[3] = (angle_diff ** 2).mean()
         else:
             loss[0] += (pred_angle * 0).sum()
+            loss[3] = torch.tensor(0.0, device=self.device)
 
-        # Angle Loss (MSE)
-        gt_angle_norm = torch.minimum(target_bboxes[fg_mask][:,-1], math.pi/2 - target_bboxes[fg_mask][:,-1])
-        pred_angle_norm = torch.minimum(pred_bboxes[fg_mask][:,-1], math.pi/2 - pred_bboxes[fg_mask][:,-1])
-        angle_diff = gt_angle_norm - pred_angle_norm
-        angle_loss = (angle_diff ** 2).mean()
         
         loss[0] *= self.hyp.box  # box gain
         loss[1] *= self.hyp.cls  # cls gain
         loss[2] *= self.hyp.dfl  # dfl gain
-        loss[3] = angle_loss * self.hyp.ang
+        loss[3] *= self.hyp.ang
         
         return loss * batch_size, loss.detach()  # loss(box, cls, dfl)
 
