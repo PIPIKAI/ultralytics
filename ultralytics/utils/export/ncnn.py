@@ -3,10 +3,28 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import MethodType
 
 import torch
 
 from ultralytics.utils import LOGGER, YAML
+
+
+def bind_model_only(model: torch.nn.Module) -> None:
+    """Bind raw per-scale box and sigmoid class outputs to a detection model head."""
+    if getattr(model, "task", None) != "detect":
+        raise ValueError("NCNN model_only export supports detection models only.")
+    head = model.model[-1]
+
+    def forward_model_only(self, x):
+        outputs = []
+        for i in range(self.nl):
+            boxes = self.one2many["box_head"][i](x[i]).permute(0, 2, 3, 1)
+            scores = self.one2many["cls_head"][i](x[i]).sigmoid().permute(0, 2, 3, 1)
+            outputs.append(torch.cat((boxes, scores), dim=-1))
+        return tuple(outputs)
+
+    head.forward = MethodType(forward_model_only, head)
 
 
 def torch2ncnn(

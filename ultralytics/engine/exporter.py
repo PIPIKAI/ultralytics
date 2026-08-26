@@ -204,7 +204,7 @@ def export_formats():
         ],
         ["PaddlePaddle", "paddle", "_paddle_model", True, True, ["batch"], "base"],
         ["MNN", "mnn", ".mnn", True, True, ["batch", "dynamic", "quantize", "opset", "simplify", "nms"], "mnn"],
-        ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "quantize"], "ncnn"],
+        ["NCNN", "ncnn", "_ncnn_model", True, True, ["batch", "quantize", "model_only"], "ncnn"],
         ["IMX", "imx", "_imx_model", True, True, ["data", "quantize", "fraction", "nms"], "isolated-imx"],
         [
             "RKNN",
@@ -891,6 +891,11 @@ class Exporter:
                 # EdgeTPU does not support FlexSplitV while split provides cleaner ONNX graph
                 m.forward = m.forward_split
 
+        if fmt == "ncnn" and self.args.model_only:
+            from ultralytics.utils.export.ncnn import bind_model_only
+
+            bind_model_only(model)
+
         if model.task == "semantic" and fmt in {"qnn", "coreml", "ascend"}:
             # NPU-targeted semantic exports ship a compact uint8 class map instead of float logits: emitting logits
             # forces consumers to dequantize and argmax ~20M floats on the CPU every frame (measured erratic
@@ -936,6 +941,8 @@ class Exporter:
         }  # model metadata
         if self.dla is not None:
             self.metadata["dla"] = self.dla  # make sure `AutoBackend` uses correct dla device if it has one
+        if self.args.model_only:
+            self.metadata["reg_max"] = model.model[-1].reg_max
         if model.task == "pose":
             self.metadata["kpt_shape"] = model.model[-1].kpt_shape
             if hasattr(model, "kpt_names"):
